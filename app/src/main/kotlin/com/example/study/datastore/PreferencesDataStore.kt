@@ -43,7 +43,7 @@ class PreferencesDataStore private constructor(context: Context) {
 
     private val dataStore = DataStoreFactory.create(
         serializer = PreferencesSerializer,
-        produceFile = { context.dataStoreFile("preferences.pb") }
+        produceFile = { context.dataStoreFile("preferences.pb") },
     )
 
     val counter: Flow<Int> = dataStore.data.map { it.counter }
