@@ -2,6 +2,7 @@ plugins {
     alias libs.plugins.android.application
     alias libs.plugins.kotlin.android
     alias libs.plugins.spotless
+    alias libs.plugins.protobuf
 }
 
 android {
@@ -56,5 +57,24 @@ dependencies {
     implementation platform(libs.androidx.compose.bom)
     implementation libs.androidx.compose.uiTooling
     implementation libs.androidx.compose.material.material
+    implementation libs.androidx.datastore
     implementation libs.androidx.profileInstaller
+    implementation libs.kotlinx.coroutines.coroutines
+    implementation libs.protobuf.lite
+}
+
+protobuf {
+    protoc {
+        artifact = libs.protobuf.protoc.get()
+    }
+
+    generateProtoTasks {
+        all().each { task ->
+            task.builtins {
+                java {
+                    option 'lite'
+                }
+            }
+        }
+    }
 }
