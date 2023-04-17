@@ -60,21 +60,4 @@ dependencies {
     implementation libs.androidx.datastore
     implementation libs.androidx.profileInstaller
     implementation libs.kotlinx.coroutines.coroutines
-    implementation libs.protobuf.lite
-}
-
-protobuf {
-    protoc {
-        artifact = libs.protobuf.protoc.get()
-    }
-
-    generateProtoTasks {
-        all().each { task ->
-            task.builtins {
-                java {
-                    option 'lite'
-                }
-            }
-        }
-    }
 }

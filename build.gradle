@@ -83,6 +83,28 @@ def setupSpotlessPlugin = { Project project ->
     }
 }
 
+def setupProtobufPlugin = { Project project ->
+    project.dependencies {
+        implementation libs.protobuf.lite
+    }
+
+    project.protobuf {
+        protoc {
+            artifact = libs.protobuf.protoc.get()
+        }
+
+        generateProtoTasks {
+            all().each { task ->
+                task.builtins {
+                    java {
+                        option 'lite'
+                    }
+                }
+            }
+        }
+    }
+}
+
 subprojects {
     plugins.whenPluginAdded {
         switch (it.class.name) {
@@ -98,6 +120,9 @@ subprojects {
                 break
             case 'com.diffplug.gradle.spotless.SpotlessPlugin':
                 setupSpotlessPlugin(project)
+                break
+            case 'com.google.protobuf.gradle.ProtobufPlugin':
+                setupProtobufPlugin(project)
                 break
             default:
                 break
