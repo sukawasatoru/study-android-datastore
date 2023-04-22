@@ -45,6 +45,10 @@ def setupAndroidPlugin = { Project project ->
             targetCompatibility JavaVersion.VERSION_11
         }
 
+        lint {
+            error = ['CheckResult']
+        }
+
         signingConfigs {
             config {
                 enableV3Signing true

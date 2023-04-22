@@ -21,13 +21,8 @@ import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlin.time.Duration.Companion.milliseconds
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
 class MainActivityViewModel(application: Application) : AndroidViewModel(application) {
@@ -43,19 +38,20 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
         log("onCleared")
     }
 
+    val prefsFlow: StateFlow<Preferences> = prefsRepo
+        .load()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, Preferences.default())
+
     fun loadPrefs() {
         log("loadPrefs")
         viewModelScope.launch {
-            try {
-                prefsRepo
-                    .load()
-                    .firstOrNull()
-                    .let { counter ->
-                        log("counter: $counter")
-                    }
-            } catch (e: Exception) {
-                log("failed to load preferences: $e")
+            val counter = suspendRunCatching {
+                prefsRepo.load().first()
+            }.getOrElse {
+                log("failed to load preferences: $it")
+                return@launch
             }
+            log("counter: $counter")
         }
     }
 
@@ -68,53 +64,32 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
         }
     }
 
-    private val _collectCounterFlow = MutableStateFlow<Int?>(null)
-    val collectCounterFlow: StateFlow<Int?> = _collectCounterFlow
-    private var collectCounterJob: Job? = null
-    fun collectCounter() {
-        log("collectCounter")
-
-        cancelCollectCounter()
-        collectCounterJob = viewModelScope.launch {
-            try {
-                prefsRepo.load().collect {
-                    _collectCounterFlow.value = it.counter
-                }
-            } catch (e: CancellationException) {
-                log("collectCounter cancelled")
-            } catch (e: Exception) {
-                log("collectCounter failed to load preferences: $e")
-            }
-        }
-    }
-
-    fun cancelCollectCounter() {
-        _collectCounterFlow.value = null
-        collectCounterJob?.cancel()
-        collectCounterJob = null
-    }
-
     private val _loadAndIncrementValue = MutableStateFlow(Preferences.default())
     val loadAndIncrementValue: StateFlow<Preferences> = _loadAndIncrementValue
     fun loadAndIncrement() {
         viewModelScope.launch {
             log("loadAndIncrement begin")
-            _loadAndIncrementValue.value = prefsRepo
-                .load()
-                .first()
-                .let {
-                    it.copy(
-                        counter = it.counter + 1,
-                    )
-                }
+            val current = suspendRunCatching {
+                prefsRepo.load().first()
+            }.getOrElse {
+                log("loadAndIncrement $it")
+                return@launch
+            }
+
+            _loadAndIncrementValue.value = current.copy(
+                counter = current.counter + 1,
+            )
             log("loadAndIncrement end")
         }
     }
 
     fun commitLoadAndIncrementValue() {
         viewModelScope.launch {
-            log("on commitLoadAndIncrementValue")
+            log("commitLoadAndIncrementValue")
             prefsRepo.save(loadAndIncrementValue.value)
+                .getOrElse {
+                    log("commitLoadAndIncrementValue $it")
+                }
         }
     }
 
@@ -122,7 +97,7 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
         viewModelScope.launch {
             prefsRepo.transaction {
                 suspendRunCatching {
-                    log("on loadAndIncrementTransaction")
+                    log("loadAndIncrementTransaction begin")
                     val ret = it.copy(
                         counter = it.counter + 1,
                     )
@@ -130,6 +105,8 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
                     log("loadAndIncrementTransaction end")
                     ret
                 }
+            }.getOrElse {
+                log("loadAndIncrementTransaction $it")
             }
         }
     }

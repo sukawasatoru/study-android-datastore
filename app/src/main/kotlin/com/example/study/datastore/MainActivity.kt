@@ -64,12 +64,8 @@ fun MainView(vm: MainActivityViewModel) {
                     Button(vm::clearPrefs) { Text("Clear") }
                 }
                 Column {
-                    val counter by vm.collectCounterFlow.collectAsState()
-                    Text("Collect counter: $counter")
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(vm::collectCounter) { Text("Collect counter") }
-                        Button(vm::cancelCollectCounter) { Text("Cancel") }
-                    }
+                    val prefs by vm.prefsFlow.collectAsState()
+                    Text("counter: ${prefs.counter}")
                 }
                 Column {
                     val counter by vm.loadAndIncrementValue.collectAsState()

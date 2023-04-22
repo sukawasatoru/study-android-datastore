@@ -16,16 +16,18 @@
 
 package com.example.study.datastore
 
+import com.example.study.datastore.pb.Preferences as PreferencesPb
 import android.content.Context
+import androidx.annotation.CheckResult
 import androidx.datastore.core.CorruptionException
 import androidx.datastore.core.DataStoreFactory
 import androidx.datastore.core.Serializer
 import androidx.datastore.dataStoreFile
-import com.example.study.datastore.pb.Preferences as PreferencesPb
 import com.google.protobuf.InvalidProtocolBufferException
 import java.io.InputStream
 import java.io.OutputStream
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 
 class PreferencesRepository(context: Context) {
@@ -35,9 +37,10 @@ class PreferencesRepository(context: Context) {
     )
 
     fun load(): Flow<Preferences> {
-        return dataStore.data.map(PreferencesPb::toModel)
+        return dataStore.data.map(PreferencesPb::toModel).distinctUntilChanged()
     }
 
+    @CheckResult
     suspend fun save(prefs: Preferences): Result<Unit> {
         return suspendRunCatching {
             dataStore.updateData { prefs.toPb() }
@@ -45,6 +48,7 @@ class PreferencesRepository(context: Context) {
         }
     }
 
+    @CheckResult
     suspend fun clear(): Result<Unit> {
         return suspendRunCatching {
             dataStore.updateData { PreferencesPb.getDefaultInstance() }
@@ -52,6 +56,7 @@ class PreferencesRepository(context: Context) {
         }
     }
 
+    @CheckResult
     suspend fun transaction(transform: suspend (Preferences) -> Result<Preferences>): Result<Unit> {
         return suspendRunCatching {
             var exception: Throwable? = null
