@@ -21,11 +21,12 @@ import androidx.datastore.core.CorruptionException
 import androidx.datastore.core.DataStoreFactory
 import androidx.datastore.core.Serializer
 import androidx.datastore.dataStoreFile
-import com.example.study.datastore.pb.Preferences
+import com.example.study.datastore.pb.Preferences as PreferencesPb
 import com.google.protobuf.InvalidProtocolBufferException
 import java.io.InputStream
 import java.io.OutputStream
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 
 class PreferencesRepository(context: Context) {
     private val dataStore = DataStoreFactory.create(
@@ -34,19 +35,19 @@ class PreferencesRepository(context: Context) {
     )
 
     fun load(): Flow<Preferences> {
-        return dataStore.data
+        return dataStore.data.map(PreferencesPb::toModel)
     }
 
     suspend fun save(prefs: Preferences): Result<Unit> {
         return suspendRunCatching {
-            dataStore.updateData { prefs }
+            dataStore.updateData { prefs.toPb() }
             Unit
         }
     }
 
     suspend fun clear(): Result<Unit> {
         return suspendRunCatching {
-            dataStore.updateData { it.toBuilder().clear().build() }
+            dataStore.updateData { PreferencesPb.getDefaultInstance() }
             Unit
         }
     }
@@ -55,9 +56,14 @@ class PreferencesRepository(context: Context) {
         return suspendRunCatching {
             var exception: Throwable? = null
             dataStore.updateData { currentData ->
-                transform(currentData)
-                    .onFailure { exception = it }
-                    .getOrElse { currentData }
+                transform(currentData.toModel())
+                    .fold(
+                        onSuccess = Preferences::toPb,
+                        onFailure = {
+                            exception = it
+                            currentData
+                        },
+                    )
             }
 
             exception?.let { Result.failure(it) } ?: Result.success(Unit)
@@ -65,18 +71,18 @@ class PreferencesRepository(context: Context) {
     }
 }
 
-object PreferencesSerializer : Serializer<Preferences> {
-    override val defaultValue: Preferences = Preferences.getDefaultInstance()
+object PreferencesSerializer : Serializer<PreferencesPb> {
+    override val defaultValue: PreferencesPb = PreferencesPb.getDefaultInstance()
 
-    override suspend fun readFrom(input: InputStream): Preferences {
+    override suspend fun readFrom(input: InputStream): PreferencesPb {
         try {
-            return Preferences.parseFrom(input)
+            return PreferencesPb.parseFrom(input)
         } catch (e: InvalidProtocolBufferException) {
             throw CorruptionException("Cannot read proto.", e)
         }
     }
 
-    override suspend fun writeTo(t: Preferences, output: OutputStream) {
+    override suspend fun writeTo(t: PreferencesPb, output: OutputStream) {
         t.writeTo(output)
     }
 }

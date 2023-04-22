@@ -20,7 +20,6 @@ import android.app.Application
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.study.datastore.pb.Preferences
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -48,7 +47,8 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
         log("loadPrefs")
         viewModelScope.launch {
             try {
-                prefsRepo.load()
+                prefsRepo
+                    .load()
                     .firstOrNull()
                     .let { counter ->
                         log("counter: $counter")
@@ -94,7 +94,7 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
         collectCounterJob = null
     }
 
-    private val _loadAndIncrementValue = MutableStateFlow(Preferences.getDefaultInstance())
+    private val _loadAndIncrementValue = MutableStateFlow(Preferences.default())
     val loadAndIncrementValue: StateFlow<Preferences> = _loadAndIncrementValue
     fun loadAndIncrement() {
         viewModelScope.launch {
@@ -102,11 +102,11 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
             _loadAndIncrementValue.value = prefsRepo
                 .load()
                 .first()
-                .toBuilder()
-                .apply {
-                    counter += 1
+                .let {
+                    it.copy(
+                        counter = it.counter + 1,
+                    )
                 }
-                .build()
             log("loadAndIncrement end")
         }
     }
@@ -123,9 +123,9 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
             prefsRepo.transaction {
                 suspendRunCatching {
                     log("on loadAndIncrementTransaction")
-                    val ret = it.toBuilder()
-                        .setCounter(it.counter + 1)
-                        .build()
+                    val ret = it.copy(
+                        counter = it.counter + 1,
+                    )
                     delay(5_000.milliseconds)
                     log("loadAndIncrementTransaction end")
                     ret
