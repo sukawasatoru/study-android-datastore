@@ -31,8 +31,12 @@ import kotlinx.coroutines.launch
 
 class MainActivityViewModel(application: Application) : AndroidViewModel(application) {
     companion object {
-        private fun log(msg: String) {
-            Log.i("MainActivityViewModel", msg)
+        private fun log(msg: String, e: Throwable? = null) {
+            if (e == null) {
+                Log.i("MainActivityViewModel", msg)
+            } else {
+                Log.i("MainActivityViewModel", msg, e)
+            }
         }
     }
 
@@ -52,7 +56,7 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
             val counter = suspendRunCatching {
                 prefsRepo.load().first()
             }.getOrElse {
-                log("failed to load preferences: $it")
+                log("failed to load preferences", it)
                 return@launch
             }
             log("counter: $counter")
@@ -63,7 +67,7 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
         viewModelScope.launch {
             prefsRepo.clear()
                 .getOrElse {
-                    log("failed to clear preferences: $it")
+                    log("failed to clear preferences", it)
                 }
         }
     }
@@ -76,7 +80,7 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
             val current = suspendRunCatching {
                 prefsRepo.load().first()
             }.getOrElse {
-                log("loadAndIncrement $it")
+                log("loadAndIncrement", it)
                 return@launch
             }
 
@@ -92,7 +96,7 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
             log("commitLoadAndIncrementValue")
             prefsRepo.save(loadAndIncrementValue.value)
                 .getOrElse {
-                    log("commitLoadAndIncrementValue $it")
+                    log("commitLoadAndIncrementValue", it)
                 }
         }
     }
@@ -100,18 +104,16 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
     fun loadAndIncrementTransaction() {
         viewModelScope.launch {
             prefsRepo.transaction {
-                suspendRunCatching {
-                    log("loadAndIncrementTransaction begin")
-                    val ret = it.copy(
-                        counter = it.counter + 1,
-                    )
-                    delay(5_000.milliseconds)
-                    log("loadAndIncrementTransaction end")
-                    ret
-                }
+                log("loadAndIncrementTransaction begin")
+                val ret = it.copy(
+                    counter = it.counter + 1,
+                )
+                delay(5_000.milliseconds)
+                Result.success(ret)
             }.getOrElse {
-                log("loadAndIncrementTransaction $it")
+                log("loadAndIncrementTransaction", it)
             }
+            log("loadAndIncrementTransaction end")
         }
     }
 }

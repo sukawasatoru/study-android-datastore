@@ -59,19 +59,11 @@ class PreferencesRepository(context: Context) {
     @CheckResult
     suspend fun transaction(transform: suspend (Preferences) -> Result<Preferences>): Result<Unit> {
         return suspendRunCatching {
-            var exception: Throwable? = null
             dataStore.updateData { currentData ->
                 transform(currentData.toModel())
-                    .fold(
-                        onSuccess = Preferences::toPb,
-                        onFailure = {
-                            exception = it
-                            currentData
-                        },
-                    )
+                    .map(Preferences::toPb)
+                    .getOrThrow()
             }
-
-            exception?.let { Result.failure(it) } ?: Result.success(Unit)
         }
     }
 }
