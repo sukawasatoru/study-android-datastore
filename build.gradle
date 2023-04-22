@@ -74,11 +74,9 @@ def setupKotlinAndroidPlugin = { Project project ->
 def setupSpotlessPlugin = { Project project ->
     project.spotless {
         kotlin {
-            target project.fileTree(dir: 'src', include: '**/*.kt', exclude: ['test/**/*.kt', 'androidTest/**/*.kt'])
-            ktlint('0.48.2').userData([
-                android          : 'true',
-                'max-line-length': '120',
-            ])
+            target 'src/**/*.kt'
+            targetExclude 'test/**/*.kt', 'androidTest/**/*.kt'
+            ktlint('0.48.2')
         }
     }
 }

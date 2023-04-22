@@ -26,30 +26,42 @@ import com.google.protobuf.InvalidProtocolBufferException
 import java.io.InputStream
 import java.io.OutputStream
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
 
-class PreferencesDataStore private constructor(context: Context) {
-    companion object {
-        private var instance: PreferencesDataStore? = null
-
-        @Synchronized
-        fun getInstance(context: Context): PreferencesDataStore {
-            instance?.let { return it }
-            return PreferencesDataStore(context).also {
-                instance = it
-            }
-        }
-    }
-
+class PreferencesRepository(context: Context) {
     private val dataStore = DataStoreFactory.create(
         serializer = PreferencesSerializer,
         produceFile = { context.dataStoreFile("preferences.pb") },
     )
 
-    val counter: Flow<Int> = dataStore.data.map { it.counter }
+    fun load(): Flow<Preferences> {
+        return dataStore.data
+    }
 
-    suspend fun updateData(transformer: suspend (Preferences) -> Preferences) {
-        dataStore.updateData(transformer)
+    suspend fun save(prefs: Preferences): Result<Unit> {
+        return suspendRunCatching {
+            dataStore.updateData { prefs }
+            Unit
+        }
+    }
+
+    suspend fun clear(): Result<Unit> {
+        return suspendRunCatching {
+            dataStore.updateData { it.toBuilder().clear().build() }
+            Unit
+        }
+    }
+
+    suspend fun transaction(transform: suspend (Preferences) -> Result<Preferences>): Result<Unit> {
+        return suspendRunCatching {
+            var exception: Throwable? = null
+            dataStore.updateData { currentData ->
+                transform(currentData)
+                    .onFailure { exception = it }
+                    .getOrElse { currentData }
+            }
+
+            exception?.let { Result.failure(it) } ?: Result.success(Unit)
+        }
     }
 }
 

@@ -20,6 +20,7 @@ import android.app.Application
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.study.datastore.pb.Preferences
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -27,6 +28,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 
 class MainActivityViewModel(application: Application) : AndroidViewModel(application) {
@@ -36,7 +38,7 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
         }
     }
 
-    private val prefsDataStore = PreferencesDataStore.getInstance(application)
+    private val prefsRepo = PreferencesRepository(application)
 
     override fun onCleared() {
         log("onCleared")
@@ -45,17 +47,24 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
     fun loadPrefs() {
         log("loadPrefs")
         viewModelScope.launch {
-            log("counter: ${prefsDataStore.counter.first()}")
+            try {
+                prefsRepo.load()
+                    .firstOrNull()
+                    .let { counter ->
+                        log("counter: $counter")
+                    }
+            } catch (e: Exception) {
+                log("failed to load preferences: $e")
+            }
         }
     }
 
     fun clearPrefs() {
         viewModelScope.launch {
-            prefsDataStore.updateData {
-                it.toBuilder()
-                    .clear()
-                    .build()
-            }
+            prefsRepo.clear()
+                .getOrElse {
+                    log("failed to clear preferences: $it")
+                }
         }
     }
 
@@ -68,11 +77,13 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
         cancelCollectCounter()
         collectCounterJob = viewModelScope.launch {
             try {
-                prefsDataStore.counter.collect {
-                    _collectCounterFlow.value = it
+                prefsRepo.load().collect {
+                    _collectCounterFlow.value = it.counter
                 }
             } catch (e: CancellationException) {
-                log("cancelled collectCounter")
+                log("collectCounter cancelled")
+            } catch (e: Exception) {
+                log("collectCounter failed to load preferences: $e")
             }
         }
     }
@@ -83,37 +94,42 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
         collectCounterJob = null
     }
 
-    private val _loadAndIncrementValue = MutableStateFlow(0)
-    val loadAndIncrementValue: StateFlow<Int> = _loadAndIncrementValue
+    private val _loadAndIncrementValue = MutableStateFlow(Preferences.getDefaultInstance())
+    val loadAndIncrementValue: StateFlow<Preferences> = _loadAndIncrementValue
     fun loadAndIncrement() {
         viewModelScope.launch {
             log("loadAndIncrement begin")
-            _loadAndIncrementValue.value = prefsDataStore.counter.first() + 1
+            _loadAndIncrementValue.value = prefsRepo
+                .load()
+                .first()
+                .toBuilder()
+                .apply {
+                    counter += 1
+                }
+                .build()
             log("loadAndIncrement end")
         }
     }
 
     fun commitLoadAndIncrementValue() {
         viewModelScope.launch {
-            prefsDataStore.updateData {
-                log("on commitLoadAndIncrementValue")
-                it.toBuilder()
-                    .setCounter(loadAndIncrementValue.value)
-                    .build()
-            }
+            log("on commitLoadAndIncrementValue")
+            prefsRepo.save(loadAndIncrementValue.value)
         }
     }
 
     fun loadAndIncrementTransaction() {
         viewModelScope.launch {
-            prefsDataStore.updateData {
-                log("on loadAndIncrementTransaction")
-                val ret = it.toBuilder()
-                    .setCounter(it.counter + 1)
-                    .build()
-                delay(5_000.milliseconds)
-                log("loadAndIncrementTransaction end")
-                ret
+            prefsRepo.transaction {
+                suspendRunCatching {
+                    log("on loadAndIncrementTransaction")
+                    val ret = it.toBuilder()
+                        .setCounter(it.counter + 1)
+                        .build()
+                    delay(5_000.milliseconds)
+                    log("loadAndIncrementTransaction end")
+                    ret
+                }
             }
         }
     }
