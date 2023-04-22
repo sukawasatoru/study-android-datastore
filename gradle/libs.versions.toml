@@ -106,7 +106,6 @@ android-library = { id = "com.android.library", version.ref = "agp" }
 android-test = { id = "com.android.test", version.ref = "agp" }
 apollo = { id = "com.apollographql.apollo", version.ref = "apollo" }
 protobuf = "com.google.protobuf:0.9.2"
-spotless = "com.diffplug.spotless:6.18.0"
 hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }

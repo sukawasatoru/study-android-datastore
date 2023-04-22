@@ -16,13 +16,13 @@
 
 package com.example.study.datastore
 
-import com.example.study.datastore.pb.Preferences as PreferencesPb
 import android.content.Context
 import androidx.annotation.CheckResult
 import androidx.datastore.core.CorruptionException
 import androidx.datastore.core.DataStoreFactory
 import androidx.datastore.core.Serializer
 import androidx.datastore.dataStoreFile
+import com.example.study.datastore.pb.Preferences as PreferencesPb
 import com.google.protobuf.InvalidProtocolBufferException
 import java.io.InputStream
 import java.io.OutputStream
